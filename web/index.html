@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0e309f" />
+    <meta
+      name="description"
+      content="Kaizen Instruct.AI: a course-aware tutoring workspace with instructor-defined learning policies."
+    />
+    <title>Kaizen | Instruct.AI Learning Workspace</title>
+    <link rel="icon" href="/assets/mascot.png" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #f7f8fb;
+      }
+      #opening {
+        position: fixed;
+        inset: 0;
+        background: #0e309f;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        transition: opacity 0.45s ease;
+      }
+      #opening video {
+        width: min(480px, 90vw);
+        height: min(480px, 90vw);
+        object-fit: contain;
+      }
+      #opening.done {
+        opacity: 0;
+        pointer-events: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #opening {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="opening" aria-label="Loading Kaizen">
+      <video
+        id="intro-video"
+        autoplay
+        muted
+        playsinline
+        preload="auto"
+        poster="/assets/logo-poster.png"
+      >
+        <source src="/assets/brand.mp4" type="video/mp4" />
+      </video>
+    </div>
+    <div id="root"></div>
+    <script>
+      const opening = document.getElementById("opening"),
+        video = document.getElementById("intro-video");
+      window.finishIntro = () => {
+        opening.classList.add("done");
+        setTimeout(() => (opening.hidden = true), 500);
+      };
+      video.addEventListener("ended", () =>
+        setTimeout(window.finishIntro, 350),
+      );
+      video.addEventListener("error", () =>
+        setTimeout(window.finishIntro, 1500),
+      );
+      setTimeout(window.finishIntro, 5000);
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        video.autoplay = false;
+        video.pause();
+        setTimeout(window.finishIntro, 600);
+      } else {
+        video.play().catch(() => setTimeout(window.finishIntro, 1500));
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
