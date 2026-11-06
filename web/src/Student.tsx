@@ -1,3 +1,4 @@
+import { useIdentity } from "./Auth";
 import React, { useState } from "react";
 import {
   BookOpen,
@@ -59,12 +60,13 @@ export function StudentDashboard({
   startPractice: (t: string) => void;
 }) {
   const { state } = useDemo();
+  const identity = useIdentity();
   const a = state.assignments[0];
   const events = state.events;
   return (
     <>
       <Heading
-        title="Welcome back, Jordan"
+        title={`Welcome back, ${identity.demo ? "Jordan" : identity.displayName.split(" ")[0]}`}
         subtitle="Ready to continue learning? Pick up where you left off."
         kicker="YOUR LEARNING WORKSPACE"
       />

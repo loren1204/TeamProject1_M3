@@ -35,24 +35,35 @@ const Context = createContext<{
   notify: (s: string) => void;
   reset: () => void;
 }>(null!);
-export function Provider({ children }: { children: React.ReactNode }) {
+export function Provider({
+  children,
+  storageKey = "kaizen-demo-v3",
+  initialRole = "student",
+  allowInstructor = true,
+}: {
+  children: React.ReactNode;
+  storageKey?: string;
+  initialRole?: Role;
+  allowInstructor?: boolean;
+}) {
   const [state, set] = useState<DemoState>(() => {
     try {
-      const s = JSON.parse(localStorage.getItem("kaizen-app-v2") || "null");
-      if (s?.assignments?.length && s?.policy) return { ...initial, ...s };
+      const s = JSON.parse(localStorage.getItem(storageKey) || "null");
+      if (s?.assignments?.length && s?.policy)
+        return { ...initial, ...s, role: allowInstructor ? s.role : "student" };
     } catch {}
-    return structuredClone(initial);
+    return { ...structuredClone(initial), role: initialRole };
   });
   const [toast, notify] = useState("");
   useEffect(() => {
     try {
-      localStorage.setItem("kaizen-app-v2", JSON.stringify(state));
+      localStorage.setItem(storageKey, JSON.stringify(state));
     } catch {
       notify(
         "Browser storage is unavailable. Changes will last for this session only.",
       );
     }
-  }, [state]);
+  }, [state, storageKey]);
   useEffect(() => {
     if (toast) {
       const t = setTimeout(() => notify(""), 3400);
@@ -66,7 +77,7 @@ export function Provider({ children }: { children: React.ReactNode }) {
         set,
         notify,
         reset: () => {
-          set(structuredClone(initial));
+          set({ ...structuredClone(initial), role: initialRole });
           notify("Demonstration reset to defaults.");
         },
       }}

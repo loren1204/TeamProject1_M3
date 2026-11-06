@@ -1,3 +1,4 @@
+import { useIdentity } from "./Auth";
 import React, { useState } from "react";
 import {
   LayoutDashboard,
@@ -65,6 +66,18 @@ const instructorNav = [
 ] as const;
 export default function App() {
   const { state, set, notify } = useDemo();
+  const identity = useIdentity();
+  const profileName = identity.demo
+    ? state.role === "instructor"
+      ? "Dr. Chen"
+      : "Jordan Smith"
+    : identity.displayName;
+  const initials = profileName
+    .split(/\s+/)
+    .map((s) => s[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
   const [view, setView] = useState(
     state.role === "student" ? "Dashboard" : "Overview",
   );
@@ -74,7 +87,7 @@ export default function App() {
   const [mobile, setMobile] = useState(false);
   const [notifications, setNotifications] = useState(false);
   const [help, setHelp] = useState(false);
-  const instructor = state.role === "instructor";
+  const instructor = identity.canTeach && state.role === "instructor";
   const nav = instructor ? instructorNav : studentNav;
   function navigate(v: string) {
     setView(v);
@@ -83,6 +96,7 @@ export default function App() {
     window.scrollTo(0, 0);
   }
   function switchRole(role: "student" | "instructor", tutor = false) {
+    if (role === "instructor" && !identity.canTeach) return;
     set((s) => ({ ...s, role, course: "Physics I" }));
     setProfile(false);
     navigate(
@@ -187,10 +201,10 @@ export default function App() {
           </button>
           <div className="sidebar-user">
             <span className={"avatar " + (instructor ? "purple" : "")}>
-              {instructor ? "DC" : "JS"}
+              {initials}
             </span>
             <div>
-              <b>{instructor ? "Dr. Chen" : "Jordan Smith"}</b>
+              <b>{profileName}</b>
               <span>
                 {instructor
                   ? "Instructor · Physics Department"
@@ -244,7 +258,7 @@ export default function App() {
               aria-expanded={profile}
             >
               <span className={"avatar " + (instructor ? "purple" : "")}>
-                {instructor ? "DC" : "JS"}
+                {initials}
               </span>
               <ChevronDown size={13} />
             </button>
@@ -268,29 +282,51 @@ export default function App() {
           )}
           {profile && (
             <div className="profile-menu">
-              <b>{instructor ? "Dr. Chen" : "Jordan Smith"}</b>
+              <b>{profileName}</b>
               <span>
-                {instructor ? "Physics Department" : "Physics I"} · Simulated
-                profile
+                {identity.demo ? "Simulated profile" : identity.user?.email}
               </span>
-              <div className="menu-label">EXPLORE THE DEMO AS</div>
-              <button
-                className={!instructor ? "selected" : ""}
-                onClick={() => switchRole("student")}
-              >
-                <GraduationCap size={17} />
-                Student{!instructor && <CheckCircle2 size={15} />}
-              </button>
-              <button
-                className={instructor ? "selected" : ""}
-                onClick={() => switchRole("instructor")}
-              >
-                <ShieldCheck size={17} />
-                Instructor{instructor && <CheckCircle2 size={15} />}
-              </button>
+              {identity.canTeach && (
+                <div className="menu-label">
+                  {identity.demo ? "EXPLORE THE DEMO AS" : "WORKSPACE VIEW"}
+                </div>
+              )}
+              {identity.canTeach && (
+                <>
+                  <button
+                    className={!instructor ? "selected" : ""}
+                    onClick={() => switchRole("student")}
+                  >
+                    <GraduationCap size={17} />
+                    Student{!instructor && <CheckCircle2 size={15} />}
+                  </button>
+                  <button
+                    className={instructor ? "selected" : ""}
+                    onClick={() => switchRole("instructor")}
+                  >
+                    <ShieldCheck size={17} />
+                    Instructor{instructor && <CheckCircle2 size={15} />}
+                  </button>
+                </>
+              )}
               <button onClick={() => navigate("Settings")}>
                 <Settings size={16} />
                 Workspace settings
+              </button>
+              <button
+                onClick={() =>
+                  identity
+                    .signOut()
+                    .catch((e) =>
+                      notify(
+                        e instanceof Error
+                          ? e.message
+                          : "Sign out failed. Please try again.",
+                      ),
+                    )
+                }
+              >
+                Sign out
               </button>
             </div>
           )}
@@ -298,14 +334,16 @@ export default function App() {
         <div className="demo-strip">
           <span className="demo-dot" />
           Interactive prototype<span className="strip-divider">·</span>Simulated
-          profiles, AI responses, and analytics. Settings persist in this
-          browser.
-          <button
-            onClick={() => switchRole(instructor ? "student" : "instructor")}
-          >
-            <ArrowLeftRight size={12} />
-            Switch to {instructor ? "student" : "instructor"}
-          </button>
+          {identity.demo ? "profiles, " : "course content, "} AI responses, and
+          analytics. Settings persist in this browser.
+          {identity.canTeach && (
+            <button
+              onClick={() => switchRole(instructor ? "student" : "instructor")}
+            >
+              <ArrowLeftRight size={12} />
+              Switch to {instructor ? "student" : "instructor"}
+            </button>
+          )}
         </div>
         <main
           id="workspace-main"

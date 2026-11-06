@@ -4,3 +4,5 @@ dist/
 outputs/
 .env
 __pycache__/
+.env.*
+!.env.example
