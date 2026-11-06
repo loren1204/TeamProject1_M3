@@ -1,243 +1,66 @@
-# CourseGuide AI
+# Kaizen / Instruct.AI
 
-CourseGuide AI is a policy-aware tutoring prototype that helps students take
-the next reasoning step without doing graded work for them.
+A policy-aware learning application built on the CourseGuide AI M3 project. Students receive step-by-step guidance, while instructors define how much help is appropriate for each assignment.
 
-## M3 CHANGES
+The application is prepared for **Vercel hosting with its own Supabase email/password login**. Visitors use a Kaizen account; no ChatGPT login is part of the application. See [deployment and authentication setup](docs/VERCEL_SUPABASE_SETUP.md).
 
-The M2 single agent was extended into a sequential multi-agent system:
+## Start the application
 
-1. **CourseGuide Planner** classifies the request, retrieves the course policy,
-   optionally recalls prior notes, and produces a bounded handoff.
-2. **CourseGuide Tutor** receives that handoff and writes the student-facing
-   response while enforcing the policy.
-3. **AgentMemoryServer** provides persistent JSON-backed `remember` and
-   `recall` MCP tools. This is the knowledge/memory layer for M3.
-
-The handoff is sequential reasoning: the tutor cannot run until the planner
-has produced its request type, constraints, context, and next-step plan.
-
-The M3 implementation also includes:
-
-- Ten evaluation cases in `tests/m3_evaluation_cases.yaml`.
-- A live evaluation runner in `scripts/evaluate_m3.py` that writes
-  `evaluation_results.csv` with each input, expected keywords, expected output,
-  human-review and critic-score fields, actual output, pass/fail status, and
-  failure category.
-- A committed baseline snapshot at
-  `docs/evaluation_results_baseline.csv`. The runner's root-level
-  `evaluation_results.csv` is a generated working file and should not be
-  committed.
-- Offline checks in `tests/test_m3_evaluation.py`.
-
-These changes were made to satisfy the M3 requirements for two agents, an
-explicit handoff, sequential reasoning, a memory layer, and a ten-case
-evaluation plan.
-
-## Setup and run one question in the terminal
-
-Use Python 3.11 or newer. From the repository root, create a virtual
-environment and install the dependencies:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```sh
+cd web
+npm ci
+npm run dev
 ```
 
-Copy `.env.example` to `.env`, then open `.env` and set the model base URL, API
-key, and model name for the provider used by your team. Never commit `.env` or
-expose its API key. The program needs network access to the configured model.
+Use Node 20.19 or newer. The frontend uses React, TypeScript, Lucide icons and Recharts. Set the public Supabase project URL and publishable key in `web/.env.local` using `web/.env.example`. Supabase handles sign-up, email confirmation, password reset, sessions and sign-out.
 
-Run one question with PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-.\.venv\Scripts\python.exe -m src.m3_agent `
-  --course physics_101 `
-  --question "I am stuck setting up Newton's second law."
+```sh
+cd web
+npm test
+npm run build
 ```
 
-The tutor's response is printed directly in the terminal. To ask another
-question, run the command again with a different `--question` value. For
-example:
+The production build is written to `web/dist/`.
 
-### Direct test commands without a script
+## Run the adapted agent
 
-If a launcher script does not work on your computer, activate the virtual
-environment and run the agent module directly:
+The M3 entry point now accepts a typed, course-and-assignment-aware site request:
 
-```powershell
-.\.venv\Scripts\Activate.ps1
-python -m src.m3_agent `
-  --course physics_101 `
-  --question "What is the difference between velocity and speed?"
+```sh
+python -m src.m3_agent --site-request docs/site_request.example.json
+python -m unittest discover -s tests -p test_site_agent.py -v
 ```
 
-The following questions are also useful examples:
+This mode is intentionally deterministic and credential-free. Its explicit planner handoff resolves the course maximum, assignment assistance cap, graded-work restrictions, diagram requirement and approved reference metadata before selecting a tutoring response. The frontend counterpart is `web/src/agent.ts`.
 
-```powershell
-python -m src.m3_agent `
-  --course physics_101 `
-  --question "I am stuck on a projectile motion problem. What should I do next?"
+The original live planner → tutor → MCP workflow remains available:
+
+```sh
+python -m src.m3_agent --course physics_101 --question "Help me set up Newton's second law."
 ```
 
-```powershell
-python -m src.m3_agent `
-  --course chemistry_201 `
-  --question "Can you check if I set up this equilibrium expression correctly?"
-```
+Live mode requires the original Python dependencies and configured model credentials. Its implementation is preserved in `src/m3_live_agent.py`. [Original M3 setup, evaluation and project documentation](docs/COURSEGUIDE_M3_README.md) is retained along with the original configs, tests, MCP servers and submission materials.
 
-```powershell
-python -m src.m3_agent `
-  --course biology_201 `
-  --question "Can you explain how the structure of the cell membrane relates to its function?"
-```
+## Connected demonstration workflows
 
-```powershell
-python -m src.m3_agent `
-  --course chemistry_201 `
-  --question "I tried balancing this reaction but I am unsure what to check next."
-```
+- **Student learning:** Dashboard → Continue Learning → request a hint → choose or upload a diagram → Recheck My Work → similar practice → submit an attempt and review feedback.
+- **Instructor control:** switch to Instructor → AI Teaching Policies → change the help level → save → Preview Student Experience. Both the displayed help level and tutoring response strategy change.
+- **Course grounding:** Course Materials → add a sample document → confirm → mark approved → switch to Student → tutor → approved references. Only approved names appear.
+- **Assignment configuration:** edit assignment metadata, assistance caps, uploads, practice-generation permissions, source display and local analytics settings.
 
-If the virtual environment is not activated, use its Python executable
-directly instead:
+## What is simulated
 
-```powershell
-.\.venv\Scripts\python.exe -m src.m3_agent `
-  --course physics_101 `
-  --question "What is the difference between velocity and speed?"
-```
+All profiles, baseline history, analytic datasets and tutoring replies are demonstration data. LocalStorage persists course policies, assignment settings, document metadata and recorded practice events. Files remain in browser memory. Document approval filters reference names; it does not semantically index documents. Work analysis uses predefined feedback independent of uploaded content. No live model or image interpretation is connected to the deployed application.
 
-The CourseGuide Tutor response should appear in the terminal after the
-question is processed. Available course policy files are `physics_101`,
-`chemistry_201`, and `biology_201`.
+Instructor access is granted through administrator-owned Supabase app metadata. Optional guest demonstration mode keeps role switching separate from signed-in accounts. A future live backend must authenticate instructors, load authoritative policies server-side, verify assignment ownership, and retrieve only approved content. Never place provider credentials in the frontend.
 
-### Run with a helper script
+## Verification
 
-```powershell
-.\scripts\run_m3.ps1 `
-  -Course chemistry_201 `
-  -Question "Can you help me decide what to check next in my equilibrium expression?"
-```
+- 11 TypeScript checks cover account isolation, role defaults, password validation, assistance caps, graded-work restrictions, diagram gates, source approval, analogous-practice restrictions and all practice pools.
+- 6 Python checks cover the site adapter's policy enforcement and validation.
+- TypeScript compilation and the Vite production build pass.
+- Browser checks cover role switching, policy synchronization, material approval, assignment edits, file preview, diagram feedback, practice correction and mobile navigation.
 
-The PowerShell launcher uses the repository's virtual environment and prints
-the final CourseGuide Tutor response. If PowerShell blocks local scripts, use
-the direct Python commands above or allow scripts for the current session with
-`Set-ExecutionPolicy -Scope Process Bypass`.
+## Attribution
 
-On macOS or Linux, the equivalent command is:
-
-```bash
-./scripts/run_m3.sh --course physics_101 --question "I am stuck setting up Newton's second law."
-```
-
-The policy MCP server reads course files from `config/`. Memory is stored in
-`data/agent_memory.json` and is limited to the most recent 100 notes.
-
-### Run with the helper scripts
-
-If you would rather not type the full command, the `scripts/` folder has
-shortcuts. Each one switches to the repository root and turns on `.venv` for
-you if it exists. You still need to complete the setup above first (virtual
-environment, `pip install`, and your `.env` file).
-
-There are two versions of each script, so use the one that matches your
-terminal. The `.sh` files only work on macOS, Linux, or Git Bash. They do
-nothing useful in Windows PowerShell or Command Prompt, which can look like the
-command was skipped. On Windows, use the `.ps1` files.
-
-**Windows (PowerShell):**
-
-```powershell
-.\scripts\run_m3.ps1
-```
-
-If PowerShell says running scripts is disabled, allow it for this window only
-and run the script again:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
-
-**macOS / Linux:**
-
-```bash
-chmod +x scripts/*.sh        # only needed once, if the scripts are not executable
-./scripts/run_m3.sh
-```
-
-Both versions ask the agent one example question: "I am stuck setting up
-Newton's second law." for `physics_101`.
-
-## Evaluation
-
-Run the offline evaluation checks:
-
-```powershell
-python -m pytest tests/test_m3_evaluation.py -q
-```
-
-Run all ten live cases against the configured model:
-
-```powershell
-python scripts/evaluate_m3.py
-```
-
-The live command creates `evaluation_results.csv`. The committed baseline
-snapshot records one 4/10 automated run; live runs can vary with model output.
-The runner labels automated keyword misses as `response_keyword`; human review
-should assign the root cause from the evaluation plan's categories. The
-`human_review` and `critic_score` columns remain blank until those reviews are
-performed. `.env` and `data/agent_memory.json` should not be committed.
-
-### Run the evaluation with the helper script
-
-`scripts/run_tests.ps1` (Windows) and `scripts/run_tests.sh` (macOS / Linux) do
-the same thing as the live command above. They run all ten cases against your
-configured model, print PASS or FAIL for each one, show the overall pass rate at
-the end, and write `evaluation_results.csv`.
-
-```powershell
-.\scripts\run_tests.ps1
-```
-
-```bash
-./scripts/run_tests.sh
-```
-
-Anything you add after the script name is passed along to the evaluation, so you
-can pick a different model or save the results somewhere else:
-
-```powershell
-.\scripts\run_tests.ps1 --model your-model-name --output results\run1.csv
-```
-
-```bash
-./scripts/run_tests.sh --model your-model-name --output results/run1.csv
-```
-
-Because this sends real requests to the model, it needs your `.env` credentials
-and may take a few minutes. To run only the quick offline checks instead (no
-model calls), use `python -m pytest tests/test_m3_evaluation.py -q` (shown above).
-
-## M3 submission status
-
-The repository contains the M3 implementation, evaluation plan, baseline
-results, and supporting tests. The architecture diagram, screen recording,
-cost and sustainability analysis, user-testing plan, and teammate contribution
-evidence are maintained as separate submission materials.
-
-The baseline had substantive quality gaps in cases `m3_001` and `m3_006`:
-their outputs asked follow-up questions without explaining the requested
-concepts. Other automated failures may be keyword misses rather than incorrect
-guidance, so the baseline should not be treated as a final human-reviewed
-score.
-
-## Known limitations
-
-- The memory layer uses JSON substring matching rather than embeddings or a
-  vector database, so retrieval quality will decline for paraphrased queries.
-- The planner-to-tutor handoff is text, so malformed model output is not yet
-  rejected by a schema validator.
-- Model calls and MCP subprocesses require network access and valid provider
-  credentials; offline fallback and retry policy are not implemented yet.
+Fork of [DanielG0798/TeamProject1_M3](https://github.com/DanielG0798/TeamProject1_M3). The upstream MIT license and original coursework files are preserved. The application is implemented under `web/`; the new agent adapter and its entry point are under `src/`.

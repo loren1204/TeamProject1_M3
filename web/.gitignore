@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.sites-runtime/
+outputs/
+.env
+__pycache__/
+.env.*
+!.env.example
